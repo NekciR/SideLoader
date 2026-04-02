@@ -1,5 +1,6 @@
 package com.rickendy.sideloader.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -35,6 +36,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun AppDetailScreen(
     app: AppInfo,
+    onSpeedChange: (Float) -> Unit = {},
     onBackClick: () -> Unit,
     onInstallClick: (AppInfo) -> Unit
 ) {
@@ -65,9 +67,13 @@ fun AppDetailScreen(
     }
 
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = { Text(app.name) },
+                colors = TopAppBarDefaults.smallTopAppBarColors(
+                    containerColor = Color.Transparent
+                ),
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
@@ -92,7 +98,11 @@ fun AppDetailScreen(
             // Card 1 — App identity
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {
                 Row(
                     modifier = Modifier
@@ -157,7 +167,11 @@ fun AppDetailScreen(
             // Card 2 — Details
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
+                        ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -246,6 +260,7 @@ fun AppDetailScreen(
                                 scope.launch {
                                     isDownloading = true
                                     errorMessage = null
+                                    onSpeedChange(10f)
                                     val result = downloadAndInstall(
                                         context = context,
                                         apkUrl = app.apkUrl,
@@ -253,6 +268,7 @@ fun AppDetailScreen(
                                         onProgress = { progress = it }
                                     )
                                     isDownloading = false
+                                    onSpeedChange(1f)
                                     when (result) {
                                         is DownloadResult.Success -> {
                                             isInstalled = isAppInstalled(context, app.id)
@@ -289,6 +305,7 @@ fun AppDetailScreen(
                             scope.launch {
                                 isDownloading = true
                                 errorMessage = null
+                                onSpeedChange(10f)
                                 val result = downloadAndInstall(
                                     context = context,
                                     apkUrl = app.apkUrl,
@@ -296,6 +313,7 @@ fun AppDetailScreen(
                                     onProgress = { progress = it }
                                 )
                                 isDownloading = false
+                                onSpeedChange(1f)
                                 when (result) {
                                     is DownloadResult.Success -> {
                                         isInstalled = isAppInstalled(context, app.id)
