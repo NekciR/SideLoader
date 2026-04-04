@@ -155,12 +155,10 @@ fun AppNavigation() {
                     selectedApp?.let { app ->
                         AppDetailScreen(
                             app = app,
-                            onSpeedChange = {speed -> backgroundSpeed = speed},
-                            onBackClick = {
-                                bottomNavController.popBackStack()
-                                backgroundSpeed = 1f
-                                          },
-                            onInstallClick = { }
+                            appViewModel = appViewModel,
+                            onBackClick = { bottomNavController.popBackStack() },
+                            onInstallClick = { },
+                            onSpeedChange = { speed -> backgroundSpeed = speed }
                         )
                     }
                 }

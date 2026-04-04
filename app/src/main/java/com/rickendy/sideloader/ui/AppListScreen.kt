@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.rickendy.sideloader.data.model.AppInfo
+import com.rickendy.sideloader.ui.shared.TransparentCard
 import com.rickendy.sideloader.util.getInstalledVersionCode
 import com.rickendy.sideloader.util.isAppInstalled
 import com.rickendy.sideloader.viewmodel.AppUiState
@@ -125,19 +126,9 @@ fun AppCard(
     val installedVersionCode = remember { getInstalledVersionCode(context, app.id) }
     val hasUpdate = isInstalled && installedVersionCode < app.versionCode
 
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
-        ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-
-    ) {
+    TransparentCard(onClick = onClick, contentPadding = PaddingValues(16.dp)) {
         Row(
             modifier = Modifier
-                .padding(12.dp)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {

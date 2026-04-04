@@ -3,12 +3,19 @@ package com.rickendy.sideloader.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.rickendy.sideloader.data.model.User
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.rememberModalBottomSheetState
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ModalBottomSheet
+import com.rickendy.sideloader.ui.shared.SectionHeader
+import com.rickendy.sideloader.ui.shared.TransparentCard
+import com.rickendy.sideloader.ui.shared.TransparentTopAppBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -20,12 +27,13 @@ fun SettingsScreen(
     val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
     val appVersion = packageInfo.versionName
 
+    var showLogoutSheet by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState()
+
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(title = { Text("Settings") }, colors = TopAppBarDefaults.smallTopAppBarColors(
-                containerColor = Color.Transparent
-            ))
+            TransparentTopAppBar(title = "Settings")
         }
     ) { paddingValues ->
         Column(
@@ -35,71 +43,94 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+            TransparentCard (contentPadding = PaddingValues(16.dp))  {
+                SectionHeader(title = "Account")
+                HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
+                Text(
+                    text = currentUser.displayName,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = currentUser.username,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            TransparentCard (contentPadding = PaddingValues(16.dp)) {
+                SectionHeader(title = "About")
+                HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "Account",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Divider()
-                    Text(
-                        text = currentUser.displayName,
-                        style = MaterialTheme.typography.titleMedium
+                        text = "Version",
+                        style = MaterialTheme.typography.bodyMedium
                     )
                     Text(
-                        text = currentUser.username,
+                        text = appVersion ?: "Unknown",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "About",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Divider()
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Version",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Text(
-                            text = appVersion ?: "Unknown",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-
             OutlinedButton(
-                onClick = onLogout,
+                onClick = { showLogoutSheet = true },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = MaterialTheme.colorScheme.error
                 )
             ) {
                 Text("Logout")
+            }
+        }
+
+        if (showLogoutSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showLogoutSheet = false },
+                sheetState = sheetState,
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .padding(bottom = 32.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "Logout",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Text(
+                        text = "Are you sure you want to logout?",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Button(
+                        onClick = {
+                            showLogoutSheet = false
+                            onLogout()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text("Yes, Logout")
+                    }
+
+                    OutlinedButton(
+                        onClick = { showLogoutSheet = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Cancel")
+                    }
+                }
             }
         }
     }

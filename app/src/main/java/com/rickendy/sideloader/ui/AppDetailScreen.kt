@@ -1,5 +1,6 @@
 package com.rickendy.sideloader.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -11,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,6 +26,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import coil.compose.AsyncImage
 import com.rickendy.sideloader.data.model.AppInfo
+import com.rickendy.sideloader.ui.shared.SectionHeader
+import com.rickendy.sideloader.ui.shared.TransparentCard
+import com.rickendy.sideloader.ui.shared.TransparentTopAppBar
 import com.rickendy.sideloader.util.DownloadResult
 import com.rickendy.sideloader.util.downloadAndInstall
 import com.rickendy.sideloader.util.getInstalledVersionCode
@@ -31,19 +36,37 @@ import com.rickendy.sideloader.util.isAppInstalled
 import com.rickendy.sideloader.util.openApp
 import com.rickendy.sideloader.util.uninstallApp
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.livedata.observeAsState
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.work.WorkInfo
+import com.rickendy.sideloader.util.DownloadManager
+import com.rickendy.sideloader.viewmodel.AppViewModel
+import com.rickendy.sideloader.worker.DownloadWorker
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppDetailScreen(
     app: AppInfo,
-    onSpeedChange: (Float) -> Unit = {},
+    appViewModel: AppViewModel = viewModel(),
     onBackClick: () -> Unit,
-    onInstallClick: (AppInfo) -> Unit
+    onInstallClick: (AppInfo) -> Unit,
+    onSpeedChange: (Float) -> Unit = {}
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var isDownloading by remember { mutableStateOf(false) }
-    var progress by remember { mutableStateOf(0) }
+    val activeDownloads by appViewModel.activeDownloads.collectAsState()
+    val workId = activeDownloads[app.id]
+    val workInfo = workId?.let {
+        DownloadManager.getWorkInfo(context, it).observeAsState()
+    }
+
+    val isDownloading = workId != null && workInfo?.value?.state != WorkInfo.State.SUCCEEDED
+            && workInfo?.value?.state != WorkInfo.State.FAILED
+            && workInfo?.value?.state != WorkInfo.State.CANCELLED
+    val progress = workInfo?.value?.progress?.getInt(
+        DownloadWorker.KEY_PROGRESS, 0
+    ) ?: 0
+    val downloadFailed = workInfo?.value?.state == WorkInfo.State.FAILED
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     var isInstalled by remember { mutableStateOf(isAppInstalled(context, app.id)) }
@@ -66,14 +89,33 @@ fun AppDetailScreen(
         }
     }
 
+    LaunchedEffect(workInfo?.value?.state) {
+        when (workInfo?.value?.state) {
+            WorkInfo.State.RUNNING -> {
+                onSpeedChange(10f)
+            }
+            WorkInfo.State.SUCCEEDED -> {
+                onSpeedChange(1f)
+                appViewModel.clearDownload(app.id)
+            }
+            WorkInfo.State.FAILED, WorkInfo.State.CANCELLED -> {
+                onSpeedChange(1f)
+                appViewModel.clearDownload(app.id)
+            }
+            else -> {}
+        }
+    }
+
+    BackHandler {
+        onSpeedChange(1f)
+        onBackClick()
+    }
+
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(
-                title = { Text(app.name) },
-                colors = TopAppBarDefaults.smallTopAppBarColors(
-                    containerColor = Color.Transparent
-                ),
+            TransparentTopAppBar(
+                title = app.name,
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
@@ -96,14 +138,7 @@ fun AppDetailScreen(
         ) {
 
             // Card 1 — App identity
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
-                ),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-            ) {
+            TransparentCard {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -165,37 +200,21 @@ fun AppDetailScreen(
             }
 
             // Card 2 — Details
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
-                        ),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-            ) {
+            TransparentCard {
                 Column(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            text = "Description",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = app.description,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
+                    SectionHeader(title = "Description")
+                    Text(
+                        text = app.description,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
 
                     if (app.screenshots.isNotEmpty()) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(
-                                text = "Screenshots",
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
+
+                            SectionHeader(title = "Screenshots")
                             LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
@@ -214,18 +233,11 @@ fun AppDetailScreen(
                         }
                     }
 
-
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            text = "What's New",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = app.changelog,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
+                    SectionHeader(title = "What's New")
+                    Text(
+                        text = app.changelog,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
             }
 
@@ -239,11 +251,27 @@ fun AppDetailScreen(
                         progress = progress / 100f,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Text(
-                        text = "Downloading... $progress%",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Downloading... $progress%",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        TextButton(
+                            onClick = {
+                                appViewModel.cancelDownload(context, app.id)
+                                onSpeedChange(1f)
+                            }
+                        ) {
+                            Text(
+                                text = "Cancel",
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
                 }
             } else {
                 if (isInstalled) {
@@ -257,31 +285,11 @@ fun AppDetailScreen(
                     if (hasUpdate) {
                         Button(
                             onClick = {
-                                scope.launch {
-                                    isDownloading = true
-                                    errorMessage = null
-                                    onSpeedChange(10f)
-                                    val result = downloadAndInstall(
-                                        context = context,
-                                        apkUrl = app.apkUrl,
-                                        appName = app.name,
-                                        onProgress = { progress = it }
-                                    )
-                                    isDownloading = false
-                                    onSpeedChange(1f)
-                                    when (result) {
-                                        is DownloadResult.Success -> {
-                                            isInstalled = isAppInstalled(context, app.id)
-                                        }
-                                        is DownloadResult.Error -> {
-                                            errorMessage = result.message
-                                        }
-                                    }
-                                }
+                                appViewModel.startDownload(context, app)
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Update to v${app.versionName}")
+                            Text("Install v${app.versionName}")
                         }
                     }
 
@@ -302,27 +310,7 @@ fun AppDetailScreen(
                 } else {
                     Button(
                         onClick = {
-                            scope.launch {
-                                isDownloading = true
-                                errorMessage = null
-                                onSpeedChange(10f)
-                                val result = downloadAndInstall(
-                                    context = context,
-                                    apkUrl = app.apkUrl,
-                                    appName = app.name,
-                                    onProgress = { progress = it }
-                                )
-                                isDownloading = false
-                                onSpeedChange(1f)
-                                when (result) {
-                                    is DownloadResult.Success -> {
-                                        isInstalled = isAppInstalled(context, app.id)
-                                    }
-                                    is DownloadResult.Error -> {
-                                        errorMessage = result.message
-                                    }
-                                }
-                            }
+                            appViewModel.startDownload(context, app)
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
