@@ -1,6 +1,7 @@
 package com.rickendy.sideloader.viewmodel
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rickendy.sideloader.data.model.AppInfo
@@ -26,14 +27,14 @@ class AppViewModel : ViewModel() {
     private val _activeDownloads = MutableStateFlow<Map<String, UUID>>(emptyMap())
     val activeDownloads: StateFlow<Map<String, UUID>> = _activeDownloads.asStateFlow()
 
-    init {
-        loadApps()
-    }
+//    init {
+//        loadApps()
+//    }
 
-    fun loadApps() {
+    fun loadApps(accessToken: String) {
         viewModelScope.launch {
             _uiState.value = AppUiState.Loading
-            val result = AppRepository.getApps()
+            val result = AppRepository.getApps(accessToken)
             _uiState.value = if (result.isSuccess) {
                 AppUiState.Success(result.getOrNull()?.apps ?: emptyList())
             } else {
@@ -48,7 +49,7 @@ class AppViewModel : ViewModel() {
             apkUrl = app.apkUrl,
             appName = app.name
         )
-        _activeDownloads.value += (app.id to workId)
+        _activeDownloads.value += (app.packageName to workId)
     }
 
     fun clearDownload(appId: String) {

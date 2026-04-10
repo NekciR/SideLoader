@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.LiveData
 import androidx.work.Constraints
 import androidx.work.Data
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
@@ -12,6 +13,8 @@ import com.rickendy.sideloader.worker.DownloadWorker
 import java.util.UUID
 
 object DownloadManager {
+
+    private const val QUEUE_NAME = "download_queue"
 
     fun enqueueDownload(
         context: Context,
@@ -32,7 +35,12 @@ object DownloadManager {
             .setConstraints(constraints)
             .build()
 
-        WorkManager.getInstance(context).enqueue(request)
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            QUEUE_NAME,
+            ExistingWorkPolicy.APPEND,
+            request
+        )
+
         return request.id
     }
 
@@ -42,5 +50,9 @@ object DownloadManager {
 
     fun cancelDownload(context: Context, workId: UUID) {
         WorkManager.getInstance(context).cancelWorkById(workId)
+    }
+
+    fun cancelAll(context: Context) {
+        WorkManager.getInstance(context).cancelUniqueWork(QUEUE_NAME)
     }
 }

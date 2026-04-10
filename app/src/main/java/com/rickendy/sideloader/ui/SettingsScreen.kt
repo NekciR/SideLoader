@@ -13,14 +13,17 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.rememberModalBottomSheetState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.ui.Alignment
 import com.rickendy.sideloader.ui.shared.SectionHeader
 import com.rickendy.sideloader.ui.shared.TransparentCard
 import com.rickendy.sideloader.ui.shared.TransparentTopAppBar
+import com.rickendy.sideloader.viewmodel.ThemeViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     currentUser: User,
+    themeViewModel: ThemeViewModel,
     onLogout: () -> Unit
 ) {
     val context = LocalContext.current
@@ -29,6 +32,8 @@ fun SettingsScreen(
 
     var showLogoutSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
+
+    val theme by themeViewModel.theme.collectAsState()
 
     Scaffold(
         containerColor = Color.Transparent,
@@ -76,11 +81,45 @@ fun SettingsScreen(
                 }
             }
 
+            TransparentCard(contentPadding = PaddingValues(16.dp)) {
+                SectionHeader(title = "Appearance")
+                Divider()
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Theme",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ThemeChip(
+                            label = "System",
+                            selected = theme == "system",
+                            onClick = { themeViewModel.setTheme("system") }
+                        )
+                        ThemeChip(
+                            label = "Light",
+                            selected = theme == "light",
+                            onClick = { themeViewModel.setTheme("light") }
+                        )
+                        ThemeChip(
+                            label = "Dark",
+                            selected = theme == "dark",
+                            onClick = { themeViewModel.setTheme("dark") }
+                        )
+                    }
+                }
+            }
+
             OutlinedButton(
                 onClick = { showLogoutSheet = true },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = MaterialTheme.colorScheme.error
+                    contentColor = MaterialTheme.colorScheme.error,
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                 )
             ) {
                 Text("Logout")
@@ -126,7 +165,8 @@ fun SettingsScreen(
 
                     OutlinedButton(
                         onClick = { showLogoutSheet = false },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+
                     ) {
                         Text("Cancel")
                     }
@@ -134,4 +174,22 @@ fun SettingsScreen(
             }
         }
     }
+}
+
+@Composable
+fun ThemeChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
+    )
 }

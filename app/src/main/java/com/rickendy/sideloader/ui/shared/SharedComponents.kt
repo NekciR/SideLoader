@@ -17,7 +17,7 @@ fun TransparentCard(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val cardColors = CardDefaults.cardColors(
-        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f)
+        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
     )
     val cardBorder = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
     val cardShape = RoundedCornerShape(12.dp)

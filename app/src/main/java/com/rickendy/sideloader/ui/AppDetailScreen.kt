@@ -40,6 +40,7 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.work.WorkInfo
 import com.rickendy.sideloader.util.DownloadManager
+import com.rickendy.sideloader.util.formatDate
 import com.rickendy.sideloader.viewmodel.AppViewModel
 import com.rickendy.sideloader.worker.DownloadWorker
 import java.util.UUID
@@ -50,12 +51,11 @@ fun AppDetailScreen(
     app: AppInfo,
     appViewModel: AppViewModel = viewModel(),
     onBackClick: () -> Unit,
-    onInstallClick: (AppInfo) -> Unit,
     onSpeedChange: (Float) -> Unit = {}
 ) {
     val context = LocalContext.current
     val activeDownloads by appViewModel.activeDownloads.collectAsState()
-    val workId = activeDownloads[app.id]
+    val workId = activeDownloads[app.packageName]
     val workInfo = workId?.let {
         DownloadManager.getWorkInfo(context, it).observeAsState()
     }
@@ -69,22 +69,25 @@ fun AppDetailScreen(
     val downloadFailed = workInfo?.value?.state == WorkInfo.State.FAILED
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    var isInstalled by remember { mutableStateOf(isAppInstalled(context, app.id)) }
+    var isInstalled by remember { mutableStateOf(isAppInstalled(context, app.packageName)) }
     val installedVersionCode = remember(isInstalled) {
-        getInstalledVersionCode(context, app.id)
+        getInstalledVersionCode(context, app.packageName)
     }
     val hasUpdate = isInstalled && installedVersionCode < app.versionCode
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    var showUninstallSheet by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState()
+
     LaunchedEffect(lifecycleOwner) {
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            isInstalled = isAppInstalled(context, app.id)
+            isInstalled = isAppInstalled(context, app.packageName)
         }
     }
 
-    LaunchedEffect(app.id) {
+    LaunchedEffect(app.packageName) {
         while (true) {
-            isInstalled = isAppInstalled(context, app.id)
+            isInstalled = isAppInstalled(context, app.packageName)
             kotlinx.coroutines.delay(1000)
         }
     }
@@ -96,11 +99,11 @@ fun AppDetailScreen(
             }
             WorkInfo.State.SUCCEEDED -> {
                 onSpeedChange(1f)
-                appViewModel.clearDownload(app.id)
+                appViewModel.clearDownload(app.packageName)
             }
             WorkInfo.State.FAILED, WorkInfo.State.CANCELLED -> {
                 onSpeedChange(1f)
-                appViewModel.clearDownload(app.id)
+                appViewModel.clearDownload(app.packageName)
             }
             else -> {}
         }
@@ -167,7 +170,7 @@ fun AppDetailScreen(
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = app.id,
+                            text = app.packageName,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -233,11 +236,34 @@ fun AppDetailScreen(
                         }
                     }
 
-                    SectionHeader(title = "What's New")
-                    Text(
-                        text = app.changelog,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        SectionHeader(title = "What's New")
+                        app.changelogs.forEach { changelog ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "v${changelog.versionName}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = formatDate(changelog.createdAt),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Text(
+                                text = changelog.description,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            if (changelog != app.changelogs.last()) {
+                                Divider()
+                            }
+                        }
+                    }
                 }
             }
 
@@ -262,7 +288,7 @@ fun AppDetailScreen(
                         )
                         TextButton(
                             onClick = {
-                                appViewModel.cancelDownload(context, app.id)
+                                appViewModel.cancelDownload(context, app.packageName)
                                 onSpeedChange(1f)
                             }
                         ) {
@@ -276,7 +302,7 @@ fun AppDetailScreen(
             } else {
                 if (isInstalled) {
                     Button(
-                        onClick = { openApp(context, app.id) },
+                        onClick = { openApp(context, app.packageName) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("Open App")
@@ -295,10 +321,7 @@ fun AppDetailScreen(
 
 
                     OutlinedButton(
-                        onClick = {
-                            uninstallApp(context, app.id)
-                            isInstalled = isAppInstalled(context, app.id)
-                        },
+                        onClick = { showUninstallSheet = true },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = MaterialTheme.colorScheme.error
@@ -340,6 +363,53 @@ fun AppDetailScreen(
 
 
             Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        if (showUninstallSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showUninstallSheet = false },
+                sheetState = sheetState
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .padding(bottom = 32.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "Uninstall ${app.name}?",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Text(
+                        text = "This will remove the app and all its data from your device.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Button(
+                        onClick = {
+                            showUninstallSheet = false
+                            uninstallApp(context, app.packageName)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text("Yes, Uninstall")
+                    }
+
+                    OutlinedButton(
+                        onClick = { showUninstallSheet = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Cancel")
+                    }
+                }
+            }
         }
     }
 }

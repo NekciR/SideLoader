@@ -122,7 +122,7 @@ class DownloadWorker(
 
         val pendingIntent = PendingIntent.getActivity(
             context,
-            0,
+            appName.hashCode(),
             installIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -136,6 +136,6 @@ class DownloadWorker(
             .build()
 
         val manager = context.getSystemService(NotificationManager::class.java)
-        manager.notify(NOTIFICATION_ID + 1, notification)
+        manager.notify(appName.hashCode(), notification)
     }
 }
